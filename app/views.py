@@ -495,7 +495,7 @@ class PartnerOrderManager(BackendApi):
             type: array
             required: ture
             description: 下单商品列表
-            example: [ "sku_id" : 1 , "volume" : 3]
+            example: [ {"sku_id" : 1 , "volume" : 3}]
           - name: token
             in: query
             type: string
@@ -505,42 +505,43 @@ class PartnerOrderManager(BackendApi):
           500:
             description: Server Error !
         """
-        try:
-            token = request.args.get("token", None)
-            json_parameter = request.get_json(force=True)
-            skus = json_parameter["skus"]
-            data = REDIS.hgetall(token)
-            parter_id = int(data["user_id"])
-            amount = 0
-            for sku in skus:
-                sku_id = sku["sku_id"]
-                volume = sku["volume"]
-                amount += (list(Product.select(Product.price).where(
-                    Product.sku_id == int(sku_id)).dicts())[0]["price"] * int(
-                    volume))
+        # try:
+        token = request.args.get("token", None)
+        json_parameter = request.get_json(force=True)
+        skus = json_parameter["skus"]
+        print(skus)
+        print(type(skus))
+        data = REDIS.hgetall(token)
+        parter_id = int(data["user_id"])
+        amount = 0
+        for sku in skus:
+            sku_id = sku["sku_id"]
+            volume = sku["volume"]
+            amount += (list(Product.select(Product.price).where(
+                Product.sku_id == int(sku_id)).dicts())[0]["price"] * int(
+                volume))
 
-            with DBCONN.atomic():
-                order_id = Order.insert(
+        with DBCONN.atomic():
+            order_id = Order.insert(
+                {
+                    "amount": Decimal(amount),
+                    "partner_id": parter_id,
+                    "status": 0,
+                    "create_time": datetime.datetime.now(),
+                }
+            ).execute()
+            for sku in skus:
+                OrderDetail.insert(
                     {
-                        "sku_id": int(json_parameter["standard_id"]),
-                        "amount": Decimal(amount),
-                        "partner_id": parter_id,
-                        "status": 0,
-                        "create_time": datetime.datetime.now(),
+                        "order_id": int(order_id),
+                        "sku_id": int(sku["sku_id"]),
+                        "volume": int(sku["volume"]),
                     }
                 ).execute()
-                for sku in skus:
-                    OrderDetail.insert(
-                        {
-                            "order_id": int(order_id),
-                            "sku_id": int(sku["sku_id"]),
-                            "volume": int(sku["volume"]),
-                        }
-                    ).execute()
-            return self.make_response()
-        except Exception as e:
-            logging.error(e)
-            return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
+        return self.make_response()
+        # except Exception as e:
+        #     logging.error(e)
+        #     return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
 
 
 class OrderManager(BackendApi):
@@ -610,17 +611,16 @@ class OrderManager(BackendApi):
             page = request.args.get("page", 1)
             page_size = request.args.get("page_size", 10)
             all_count = Order.select(
-                Order.sku_id,
+                Order.id,
             ).count()
             total_page = get_pagesize(page_size, all_count)
-            query_res = Order.select().where(
-            ).ordey_by(Order.create_time.desc()).paginate(int(page), page_size).dicts()
+            query_res = Order.select().order_by(Order.create_time.desc()).paginate(int(page), page_size).dicts()
             query_res = list(query_res)
             for q in query_res:
                 orderdetail_query = OrderDetail.select().where(OrderDetail.order_id == q["id"]).dicts()
                 sku_msg = []
                 for oq in orderdetail_query:
-                    sku_query = list(Product.select().where(Product.sku_id == q["sku_id"]).dicts())[0]
+                    sku_query = list(Product.select().where(Product.sku_id == oq["sku_id"]).dicts())[0]
                     oq["sku_detail"] = sku_query
                     sku_msg.append(oq)
                 q["sku_msg"] = sku_msg

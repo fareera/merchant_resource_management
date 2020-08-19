@@ -20,7 +20,6 @@ DBCONN = SqliteDatabase('webservice.db3', pragmas={'journal_mode': 'wal'})
 #     'password': ''
 # })
 
-
 class Brand(Model):
     id = AutoField()
     name = CharField(max_length=50, null=False)
@@ -59,11 +58,13 @@ class Product(Model):
 
 
 class Order(Model):
-    sku_id = IntegerField(null=False)
+    id = AutoField()
     amount = DecimalField(max_digits=20, decimal_places=3, null=False)
     partner_id = IntegerField(null=False)
     status = IntegerField(null=False)
     create_time = DateTimeField(default=datetime.datetime.now)
+    order_delivery_id = CharField(max_length=500 ,null=True)
+
 
     class Meta(object):
         """Indicates which database/schema this model points to."""
@@ -74,7 +75,7 @@ class Order(Model):
 
 
 class OrderDetail(Model):
-    order_id = AutoField()
+    order_id = IntegerField()
     sku_id = IntegerField(null=False)
     volume = IntegerField(null=False)
 
@@ -87,7 +88,7 @@ class OrderDetail(Model):
 
 
 class Partner(Model):
-    id = AutoField(primary_key=True)
+    id = AutoField()
     name = CharField(max_length=200, null=False)
     account = CharField(max_length=200, null=False)
     password = CharField(max_length=200, null=False)
@@ -116,7 +117,7 @@ class PartnerHistory(Model):
 
 
 class User(Model):
-    id = AutoField(primary_key=True)
+    id = AutoField()
     name = CharField(max_length=200, null=False)
     account = CharField(max_length=200, null=False)
     password = CharField(max_length=200, null=False)
@@ -126,7 +127,7 @@ class User(Model):
         table_name = 'user'
 
 
-DBCONN.create_tables([User, Partner, PartnerHistory, Order, OrderDetail, Brand])
+DBCONN.create_tables([User, Partner, PartnerHistory, Order, OrderDetail, Brand,Product])
 
 User.insert(
     {
@@ -143,4 +144,3 @@ a = Partner.insert(
         "password": "123456",
     }
 ).execute()
-print(a)

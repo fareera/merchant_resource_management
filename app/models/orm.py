@@ -59,11 +59,11 @@ class Product(Model):
 
 class Order(Model):
     id = AutoField()
-    sku_id = IntegerField(null=False)
     amount = DecimalField(max_digits=20, decimal_places=3, null=False)
     partner_id = IntegerField(null=False)
     status = IntegerField(null=False)
     create_time = DateTimeField(default=datetime.datetime.now)
+    order_delivery_id = CharField(max_length=500 ,null=True)
 
     class Meta(object):
         """Indicates which database/schema this model points to."""
