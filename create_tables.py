@@ -126,15 +126,15 @@ class User(Model):
         table_name = 'user'
 
 
-# DBCONN.create_tables([User, Partner, PartnerHistory, Order, OrderDetail, Brand])
+DBCONN.create_tables([User, Partner, PartnerHistory, Order, OrderDetail, Brand])
 
-# User.insert(
-#     {
-#         "name": "test",
-#         "account": "test",
-#         "password": "123456",
-#     }
-# ).execute()
+User.insert(
+    {
+        "name": "test",
+        "account": "test",
+        "password": "123456",
+    }
+).execute()
 
 a = Partner.insert(
     {
