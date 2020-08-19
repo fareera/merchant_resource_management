@@ -13,7 +13,7 @@ from decimal import Decimal
 from flask import request, jsonify, redirect
 from flask_restful import Resource
 from werkzeug.utils import secure_filename
-from app.models.orm import Brand, Standard, User, Partner, Sku, Order
+from app.models.orm import Brand, User, Partner, Order, Product, DBCONN, OrderDetail
 
 from app.errors import IntervalServerError, AuthError, InvalidParameter
 from app.logics import refresh_expiration_time, verify_token, REDIS, get_token_info, get_file_data
@@ -201,7 +201,7 @@ class ProductManager(BackendApi):
             description: Server Error !
         """
         try:
-            query_res = Standard.select().dicts()
+            query_res = Product.select().dicts()
             result = [query_obj for query_obj in query_res]
             return self.make_response(reult=result)
         except Exception as e:
@@ -225,11 +225,6 @@ class ProductManager(BackendApi):
             type: string
             required: true
             description: 商品名称
-          - name: standard
-            in: body
-            type: string
-            required: true
-            description: 规格名
           - name: unit
             in: body
             type: string
@@ -285,7 +280,7 @@ class ProductManager(BackendApi):
             json_parameter["create_time"] = datetime.datetime.now()
             json_parameter["update_time"] = datetime.datetime.now()
             json_parameter["price"] = Decimal(json_parameter["price"])
-            Standard.insert(json_parameter).execute()
+            Product.insert(json_parameter).execute()
             return self.make_response()
         except Exception as e:
             logging.error(e)
@@ -309,7 +304,7 @@ class ProductManager(BackendApi):
         """
         try:
             sku_id = request.args.get("sku_id")
-            query_res = Standard.select().where(Standard.sku_id == sku_id)
+            query_res = Product.select().where(Product.sku_id == sku_id)
             for i in query_res:
                 i.delete_instance()
             return self.make_response()
@@ -395,7 +390,7 @@ class ProductManager(BackendApi):
             json_parameter["price"] = Decimal(json_parameter["price"])
             sku_id = json_parameter["sku_id"]
             del json_parameter["sku_id"]
-            Standard.update(json_parameter).where(Standard.sku_id == sku_id).execute()
+            Product.update(json_parameter).where(Product.sku_id == sku_id).execute()
             return self.make_response()
         except Exception as e:
             logging.error(e)
@@ -471,23 +466,17 @@ class PartnerProductManager(BackendApi):
                 query_res = Brand.select().where(Brand.name == brand_name)
                 if query_res:
                     brand_id = query_res[0].id
-            all_count = Standard.select(
-                Standard.sku_id,
+            all_count = Product.select(
+                Product.sku_id,
             ).where(
-                Standard.brand_id == brand_id if brand_id is not None else 1 == 1
+                Product.brand_id == brand_id if brand_id is not None else 1 == 1
             ).count()
             total_page = get_pagesize(page_size, all_count)
-            query_res = Sku.select().where(
-                Sku.brand_id == brand_id if brand_id is not None else 1 == 1
-            ).ordey_by(Sku.create_time.desc()).paginate(int(page), page_size).dicts()
+            query_res = Product.select().where(
+                Product.brand_id == brand_id if brand_id is not None else 1 == 1
+            ).ordey_by(Product.create_time.desc()).paginate(int(page), page_size).dicts()
             query_res = list(query_res)
-            for q in query_res:
-                child_query_res = Standard.select().where(
-                    Standard.sku_id == q["sku_id"]
-                ).dicts()
-                q["standards"].append(list(child_query_res))
-            result = [query_obj for query_obj in query_res]
-            return self.make_response(reult=result, total_page=total_page)
+            return self.make_response(reult=query_res, total_page=total_page)
         except Exception as e:
             logging.error(e)
             return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
@@ -501,21 +490,12 @@ class PartnerOrderManager(BackendApi):
         tags:
           - 合作商订单管理
         parameters:
-          - name: standard_id
+          - name: skus
             in: body
-            type: int
+            type: array
             required: ture
-            description: 规格id
-          - name: sku_id
-            in: body
-            type: int
-            required: ture
-            description: sku id
-          - name: volume
-            in: body
-            type: int
-            required: ture
-            description: 下单数量
+            description: 下单商品列表
+            example: [ "sku_id" : 1 , "volume" : 3]
           - name: token
             in: query
             type: string
@@ -528,22 +508,35 @@ class PartnerOrderManager(BackendApi):
         try:
             token = request.args.get("token", None)
             json_parameter = request.get_json(force=True)
+            skus = json_parameter["skus"]
             data = REDIS.hgetall(token)
             parter_id = int(data["user_id"])
-            amount = Decimal(list(Standard.select(Standard.price).where(
-                Standard.standard_id == int(json_parameter["standard_id"])).dicts())[0]["price"] * int(
-                json_parameter["volume"]))
-            Order.insert(
-                {
-                    "standard_id": int(json_parameter["standard_id"]),
-                    "sku_id": int(json_parameter["standard_id"]),
-                    "amount": amount,
-                    "partner_id": parter_id,
-                    "status": 0,
-                    "create_time": datetime.datetime.now(),
-                    "volume": int(json_parameter["volume"]),
-                }
-            ).execute()
+            amount = 0
+            for sku in skus:
+                sku_id = sku["sku_id"]
+                volume = sku["volume"]
+                amount += (list(Product.select(Product.price).where(
+                    Product.sku_id == int(sku_id)).dicts())[0]["price"] * int(
+                    volume))
+
+            with DBCONN.atomic():
+                order_id = Order.insert(
+                    {
+                        "sku_id": int(json_parameter["standard_id"]),
+                        "amount": Decimal(amount),
+                        "partner_id": parter_id,
+                        "status": 0,
+                        "create_time": datetime.datetime.now(),
+                    }
+                ).execute()
+                for sku in skus:
+                    OrderDetail.insert(
+                        {
+                            "order_id": int(order_id),
+                            "sku_id": int(sku["sku_id"]),
+                            "volume": int(sku["volume"]),
+                        }
+                    ).execute()
             return self.make_response()
         except Exception as e:
             logging.error(e)
@@ -617,17 +610,20 @@ class OrderManager(BackendApi):
             page = request.args.get("page", 1)
             page_size = request.args.get("page_size", 10)
             all_count = Order.select(
-                Standard.sku_id,
+                Order.sku_id,
             ).count()
             total_page = get_pagesize(page_size, all_count)
             query_res = Order.select().where(
             ).ordey_by(Order.create_time.desc()).paginate(int(page), page_size).dicts()
             query_res = list(query_res)
             for q in query_res:
-                standard_query = Standard.select().where(Standard.standard_id == q["standard_id"]).dicts()
-                q["standard_msg"] = list(standard_query)[0]
-                sku_query = Sku.select().where(Sku.sku_id == q["sku_id"]).dicts()
-                q["sku_msg"] = list(sku_query)[0]
+                orderdetail_query = OrderDetail.select().where(OrderDetail.order_id == q["id"]).dicts()
+                sku_msg = []
+                for oq in orderdetail_query:
+                    sku_query = list(Product.select().where(Product.sku_id == q["sku_id"]).dicts())[0]
+                    oq["sku_detail"] = sku_query
+                    sku_msg.append(oq)
+                q["sku_msg"] = sku_msg
                 partner_query = Partner.select(Partner.name).where(Partner.id == q["partner_id"]).dicts()
                 q["partner_msg"] = list(partner_query)[0]
             result = [query_obj for query_obj in query_res]
@@ -721,7 +717,7 @@ class UpdateProductPrice(BackendApi):
             json_parameter["price"] = Decimal(json_parameter["price"])
             sku_id = json_parameter["sku_id"]
             del json_parameter["sku_id"]
-            Standard.update(json_parameter).where(Standard.sku_id == sku_id).execute()
+            Product.update(json_parameter).where(Product.sku_id == sku_id).execute()
             return self.make_response()
         except Exception as e:
             logging.error(e)
@@ -807,7 +803,7 @@ class UpdateProductStock(BackendApi):
             json_parameter["price"] = Decimal(json_parameter["price"])
             sku_id = json_parameter["sku_id"]
             del json_parameter["sku_id"]
-            Standard.update(json_parameter).where(Standard.sku_id == sku_id).execute()
+            Product.update(json_parameter).where(Product.sku_id == sku_id).execute()
             return self.make_response()
         except Exception as e:
             logging.error(e)
@@ -893,7 +889,7 @@ class UpdateProductStatus(BackendApi):
             json_parameter["price"] = Decimal(json_parameter["price"])
             sku_id = json_parameter["sku_id"]
             del json_parameter["sku_id"]
-            Standard.update(json_parameter).where(Standard.sku_id == sku_id).execute()
+            Product.update(json_parameter).where(Product.sku_id == sku_id).execute()
             return self.make_response()
         except Exception as e:
             logging.error(e)

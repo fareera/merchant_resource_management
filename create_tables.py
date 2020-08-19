@@ -5,8 +5,7 @@ from peewee import (
     DateTimeField,
     DecimalField,
     PostgresqlDatabase,
-    SqliteDatabase,
-    AutoField, CompositeKey
+    SqliteDatabase, AutoField
 )
 
 import datetime
@@ -20,16 +19,6 @@ DBCONN = SqliteDatabase('webservice.db3', pragmas={'journal_mode': 'wal'})
 #     'user': '',
 #     'password': ''
 # })
-
-class User(Model):
-    id = AutoField()
-    name = CharField(max_length=200, null=False)
-    account = CharField(max_length=200, null=False)
-    password = CharField(max_length=200, null=False)
-
-    class Meta(object):
-        database = DBCONN
-        table_name = 'user'
 
 
 class Brand(Model):
@@ -45,24 +34,8 @@ class Brand(Model):
         table_name = 'brand'
 
 
-class Sku(Model):
-    sku_id = AutoField(primary_key=True)
-    brand_id = IntegerField()
-    sku_name = CharField(max_length=200, null=False)
-    create_time = DateTimeField(default=datetime.datetime.now)
-    update_time = DateTimeField(default=datetime.datetime.now)
-
-    class Meta(object):
-        """Indicates which database/schema this model points to."""
-
-        primary_key = False
-        database = DBCONN
-        table_name = 'sku'
-
-
-class Standard(Model):
-    standard_id = AutoField(primary_key=True)
-    sku_id = IntegerField()
+class Product(Model):
+    sku_id = IntegerField(primary_key=True)
     brand_id = IntegerField(null=False)
     name = CharField(max_length=200, null=False)
     unit = CharField(max_length=50, null=False)
@@ -82,19 +55,15 @@ class Standard(Model):
 
         primary_key = False
         database = DBCONN
-        table_name = 'standard'
+        table_name = 'product'
 
 
 class Order(Model):
-    id = AutoField()
-    order_delivery_id = CharField(max_length=200, null=True)
-    standard_id = IntegerField()
     sku_id = IntegerField(null=False)
     amount = DecimalField(max_digits=20, decimal_places=3, null=False)
     partner_id = IntegerField(null=False)
     status = IntegerField(null=False)
     create_time = DateTimeField(default=datetime.datetime.now)
-    volume = IntegerField(null=False)
 
     class Meta(object):
         """Indicates which database/schema this model points to."""
@@ -107,18 +76,18 @@ class Order(Model):
 class OrderDetail(Model):
     order_id = AutoField()
     sku_id = IntegerField(null=False)
-    standard_id = IntegerField()
     volume = IntegerField(null=False)
 
     class Meta(object):
         """Indicates which database/schema this model points to."""
+
         primary_key = False
         database = DBCONN
         table_name = 'order_detail'
 
 
 class Partner(Model):
-    id = AutoField()
+    id = AutoField(primary_key=True)
     name = CharField(max_length=200, null=False)
     account = CharField(max_length=200, null=False)
     password = CharField(max_length=200, null=False)
@@ -132,7 +101,7 @@ class Partner(Model):
 
 
 class PartnerHistory(Model):
-    id = IntegerField()
+    id = AutoField(primary_key=True)
     partner_id = IntegerField()
     operation = CharField(max_length=200, null=False)
     description = CharField(max_length=200, null=False)
@@ -144,23 +113,34 @@ class PartnerHistory(Model):
         primary_key = False
         database = DBCONN
         table_name = 'partner_history'
-        primary_key = CompositeKey('id', 'partner_id')
 
 
-DBCONN.create_tables([User, Partner, PartnerHistory, Sku, Standard, Order, OrderDetail, Brand])
+class User(Model):
+    id = AutoField(primary_key=True)
+    name = CharField(max_length=200, null=False)
+    account = CharField(max_length=200, null=False)
+    password = CharField(max_length=200, null=False)
 
-User.insert(
+    class Meta(object):
+        database = DBCONN
+        table_name = 'user'
+
+
+# DBCONN.create_tables([User, Partner, PartnerHistory, Order, OrderDetail, Brand])
+
+# User.insert(
+#     {
+#         "name": "test",
+#         "account": "test",
+#         "password": "123456",
+#     }
+# ).execute()
+
+a = Partner.insert(
     {
-        "name": "test",
+        "name": "test2",
         "account": "test",
         "password": "123456",
     }
 ).execute()
-
-Partner.insert(
-    {
-        "name": "test",
-        "account": "test",
-        "password": "123456",
-    }
-).execute()
+print(a)
