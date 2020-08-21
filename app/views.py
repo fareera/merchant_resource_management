@@ -4,6 +4,7 @@
 # -----------------------------------------------------------------------------
 import datetime
 import json
+import xlwt
 import logging
 import os
 import time
@@ -21,6 +22,7 @@ from app.logics import refresh_expiration_time, verify_token, REDIS, get_token_i
 # -----------------------------------------------------------------------------
 # Globals
 # -----------------------------------------------------------------------------
+from settings import static_address
 
 FILE_PATH = os.path.join(os.path.abspath(os.path.dirname(os.path.dirname(__file__))), "files")
 
@@ -250,17 +252,17 @@ class ProductManager(BackendApi):
             in: body
             type: string
             required: true
-            description: 商品主图http链接（nginx服务器代理）
+            description: 商品主图名
           - name: image_thumbnail
             in: body
             type: string
             required: true
-            description: 商品缩略图http链接
+            description: 商品缩略图名
           - name: image_list
             in: body
             type: string
             required: true
-            description: 商品详情图http链接，逗号分隔
+            description: 商品详情图文件名，逗号分隔
           - name: description
             in: body
             type: string
@@ -359,17 +361,17 @@ class ProductManager(BackendApi):
             in: body
             type: string
             required: true
-            description: 商品主图http链接（nginx服务器代理）
+            description: 商品主图名称
           - name: image_thumbnail
             in: body
             type: string
             required: true
-            description: 商品缩略图http链接
+            description: 商品缩略图名称
           - name: image_list
             in: body
             type: string
             required: true
-            description: 商品详情图http链接，逗号分隔
+            description: 商品详情图名称，逗号分隔
           - name: description
             in: body
             type: string
@@ -395,6 +397,36 @@ class ProductManager(BackendApi):
         except Exception as e:
             logging.error(e)
             return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
+
+
+class UploadImg(BackendApi):
+    def post(self):
+        """
+        上传图片
+        ---
+        tags:
+          - 商品管理
+        parameters:
+          - name: token
+            in: query
+            type: string
+            required: ture
+            description: token
+          - name: img
+            in: body
+            type: img
+            required: ture
+            description: 图片文件
+        responses:
+          500:
+            description: Server Error !
+        """
+        img = request.files.get('img')
+        filename = str(img.filename).strip('"').split(".")
+        filename = filename[0] + "_" + str(uuid.uuid4()) + "." + filename[1]
+        file_path = os.path.join(FILE_PATH, filename)
+        img.save(file_path)
+        return self.make_response(filename=filename)
 
 
 class PartnerBrandManager(BackendApi):
@@ -545,6 +577,67 @@ class PartnerOrderManager(BackendApi):
 
 
 class OrderManager(BackendApi):
+    def post(self):
+        """
+        订单导出xlsx
+        ---
+        tags:
+          - 订单管理
+        parameters:
+          - name: partner_id
+            in: query
+            type: int
+            required: false
+            description: 合作商id
+          - name: token
+            in: query
+            type: string
+            required: ture
+            description: token
+        responses:
+          500:
+            description: Server Error !
+        """
+        try:
+            workbook = xlwt.Workbook(encoding='utf-8')
+            booksheet = workbook.add_sheet('Sheet 1', cell_overwrite_ok=True)
+            partner_id = request.args.get("partner_id", None)
+            query_res = Order.select().where(
+                Order.id == partner_id if partner_id is not None else 1 == 1
+            ).order_by(Order.create_time.desc()).dicts()
+            query_res = list(query_res)
+            for q in query_res:
+                orderdetail_query = OrderDetail.select().where(OrderDetail.order_id == q["id"]).dicts()
+                sku_msg = []
+                for oq in orderdetail_query:
+                    sku_query = list(Product.select().where(Product.sku_id == oq["sku_id"]).dicts())[0]
+                    oq["sku_detail"] = sku_query
+                    sku_msg.append(oq)
+                q["sku_msg"] = sku_msg
+                partner_query = Partner.select(Partner.name).where(Partner.id == q["partner_id"]).dicts()
+                q["partner_msg"] = list(partner_query)[0]
+            result = [query_obj for query_obj in query_res]
+            export_data = []
+            export_data.append(
+                ["创建时间", "订单id", "合作商id", "合作商名称", "物流订单号", "商品名称", "下单数量", "单价", "订单价格"]
+            )
+            for i in result:
+                for skm in i["sku_msg"]:
+                    export_data.append(
+                        [i["create_time"], i["id"], i["create_time"], i["partner_msg"]["name"], i["order_delivery_id"],
+                         skm["sku_detail"]["name"], skm["volume"],
+                         skm["sku_detail"]["price"], i["amount"]]
+                    )
+            for i, row in enumerate(export_data):
+                for j, col in enumerate(row):
+                    booksheet.write(i, j, col)
+            filename = "{}.xlsx".format(str(uuid.uuid4()))
+            workbook.save(os.path.join(FILE_PATH, filename))
+            return self.make_response(filename=filename)
+        except Exception as e:
+            logging.error(e)
+            return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
+
     def put(self):
         """
         修改物流编号
@@ -586,6 +679,11 @@ class OrderManager(BackendApi):
         tags:
           - 订单管理
         parameters:
+          - name: partner_id
+            in: query
+            type: int
+            required: false
+            description: 合作商id
           - name: page_size
             in: query
             type: int
@@ -609,12 +707,15 @@ class OrderManager(BackendApi):
         """
         try:
             page = request.args.get("page", 1)
+            partner_id = request.args.get("partner_id", None)
             page_size = request.args.get("page_size", 10)
             all_count = Order.select(
                 Order.id,
             ).count()
             total_page = get_pagesize(page_size, all_count)
-            query_res = Order.select().order_by(Order.create_time.desc()).paginate(int(page), page_size).dicts()
+            query_res = Order.select().where(
+                Order.id == partner_id if partner_id is not None else 1 == 1
+            ).order_by(Order.create_time.desc()).paginate(int(page), page_size).dicts()
             query_res = list(query_res)
             for q in query_res:
                 orderdetail_query = OrderDetail.select().where(OrderDetail.order_id == q["id"]).dicts()
@@ -916,6 +1017,26 @@ class Logout(BackendApi):
         token = request.args.get("token")
         REDIS.delete(token)
         return self.make_response()
+
+
+class GetStaticAddress(BackendApi):
+    def get(self):
+        """
+        获取服务器静态文件访问地址
+        ---
+        tags:
+          - 基本信息模块
+        parameters:
+          - name: token
+            in: query
+            type: string
+            required: ture
+            description: token
+        responses:
+          500:
+            description: Server Error !
+        """
+        return self.make_response(address=static_address)
 
 
 # -----------------------------------------------------------------------------

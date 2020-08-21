@@ -2,7 +2,8 @@ from flask_restful import Api
 
 #  加载API
 from app.views import Auth, ApiDocs, BrandManager, ProductManager, PartnerProductManager, PartnerBrandManager, \
-    UpdateProductStock, UpdateProductPrice, UpdateProductStatus, Logout, PartnerOrderManager, OrderManager
+    UpdateProductStock, UpdateProductPrice, UpdateProductStatus, Logout, PartnerOrderManager, OrderManager, UploadImg, \
+    GetStaticAddress
 
 api = Api()
 apiroot = '/api/v0.1/'
@@ -42,6 +43,10 @@ api.add_resource(UpdateProductStatus,
                  apiroot +
                  'UpdateProductStatus',
                  endpoint='UpdateProductStatus')
+api.add_resource(UploadImg,
+                 apiroot +
+                 'UploadImg',
+                 endpoint='UploadImg')
 
 # 合作商商品管理模块
 api.add_resource(PartnerProductManager,
@@ -69,3 +74,8 @@ api.add_resource(OrderManager,
                  apiroot +
                  'OrderManager',
                  endpoint='OrderManager')
+# 基本信息模块
+api.add_resource(GetStaticAddress,
+                 apiroot +
+                 'GetStaticAddress',
+                 endpoint='GetStaticAddress')

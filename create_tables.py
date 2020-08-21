@@ -41,9 +41,9 @@ class Product(Model):
     price = DecimalField(max_digits=20, decimal_places=3, null=False)
     stock = IntegerField(null=False)
     status = IntegerField(null=False)
-    image = CharField(max_length=500)
-    image_thumbnail = CharField(max_length=500)
-    image_list = CharField(max_length=500)
+    image = CharField(max_length=500, null=True)
+    image_thumbnail = CharField(max_length=500, null=True)
+    image_list = CharField(max_length=500, null=True)
     description = CharField(max_length=500)
     keywords = CharField(max_length=500)
     create_time = DateTimeField(default=datetime.datetime.now)
@@ -63,8 +63,7 @@ class Order(Model):
     partner_id = IntegerField(null=False)
     status = IntegerField(null=False)
     create_time = DateTimeField(default=datetime.datetime.now)
-    order_delivery_id = CharField(max_length=500 ,null=True)
-
+    order_delivery_id = CharField(max_length=500, null=True)
 
     class Meta(object):
         """Indicates which database/schema this model points to."""
@@ -127,7 +126,7 @@ class User(Model):
         table_name = 'user'
 
 
-DBCONN.create_tables([User, Partner, PartnerHistory, Order, OrderDetail, Brand,Product])
+DBCONN.create_tables([User, Partner, PartnerHistory, Order, OrderDetail, Brand, Product])
 
 User.insert(
     {
