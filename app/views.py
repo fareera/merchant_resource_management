@@ -621,7 +621,7 @@ class OrderManager(BackendApi):
             if end_time:
                 end_time = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
             query_res = Order.select().where(
-                (Order.id == partner_id if partner_id is not None else 1 == 1) &
+                (Order.id == int(partner_id) if partner_id is not None else 1 == 1) &
                 (Order.create_time >= start_time if start_time else 1 == 1) &
                 (Order.create_time <= end_time if end_time else 1 == 1)
             ).order_by(Order.create_time.desc()).dicts()
@@ -752,7 +752,7 @@ class OrderManager(BackendApi):
             ).count()
             total_page = get_pagesize(page_size, all_count)
             query_res = Order.select().where(
-                (Order.id == partner_id if partner_id is not None else 1 == 1) &
+                (Order.id == int(partner_id) if partner_id is not None else 1 == 1) &
                 (Order.create_time >= start_time if start_time else 1 == 1) &
                 (Order.create_time <= end_time if end_time else 1 == 1)
             ).order_by(Order.create_time.desc()).paginate(int(page), page_size).dicts()
