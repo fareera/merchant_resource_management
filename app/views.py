@@ -594,6 +594,18 @@ class OrderManager(BackendApi):
             type: string
             required: ture
             description: token
+          - name: start_time
+            in: query
+            type: string
+            required: false
+            default: ""
+            description: 起始时间
+          - name: end_time
+            in: query
+            type: string
+            required: false
+            default: ""
+            description: 结束时间
         responses:
           500:
             description: Server Error !
@@ -602,8 +614,16 @@ class OrderManager(BackendApi):
             workbook = xlwt.Workbook(encoding='utf-8')
             booksheet = workbook.add_sheet('Sheet 1', cell_overwrite_ok=True)
             partner_id = request.args.get("partner_id", None)
+            start_time = request.args.get("start_time", None)
+            end_time = request.args.get("end_time", None)
+            if start_time:
+                start_time = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
+            if end_time:
+                end_time = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
             query_res = Order.select().where(
-                Order.id == partner_id if partner_id is not None else 1 == 1
+                (Order.id == partner_id if partner_id is not None else 1 == 1) &
+                (Order.create_time >= start_time if start_time else 1 == 1) &
+                (Order.create_time <= end_time if end_time else 1 == 1)
             ).order_by(Order.create_time.desc()).dicts()
             query_res = list(query_res)
             for q in query_res:
@@ -690,6 +710,18 @@ class OrderManager(BackendApi):
             required: false
             default: 10
             description: 每页展示数量
+          - name: start_time
+            in: query
+            type: string
+            required: false
+            default: ""
+            description: 起始时间
+          - name: end_time
+            in: query
+            type: string
+            required: false
+            default: ""
+            description: 结束时间
           - name: page
             in: query
             type: int
@@ -708,13 +740,21 @@ class OrderManager(BackendApi):
         try:
             page = request.args.get("page", 1)
             partner_id = request.args.get("partner_id", None)
+            start_time = request.args.get("start_time", None)
+            end_time = request.args.get("end_time", None)
+            if start_time:
+                start_time = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
+            if end_time:
+                end_time = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
             page_size = request.args.get("page_size", 10)
             all_count = Order.select(
-                Order.id,
+                Order.id
             ).count()
             total_page = get_pagesize(page_size, all_count)
             query_res = Order.select().where(
-                Order.id == partner_id if partner_id is not None else 1 == 1
+                (Order.id == partner_id if partner_id is not None else 1 == 1) &
+                (Order.create_time >= start_time if start_time else 1 == 1) &
+                (Order.create_time <= end_time if end_time else 1 == 1)
             ).order_by(Order.create_time.desc()).paginate(int(page), page_size).dicts()
             query_res = list(query_res)
             for q in query_res:
