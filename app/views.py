@@ -492,7 +492,7 @@ class PartnerProductManager(BackendApi):
         try:
             brand_name = request.args.get("brand_name", None)
             page = request.args.get("page", 1)
-            page_size = request.args.get("page_size", 10)
+            page_size = int(request.args.get("page_size", 10))
             brand_id = None
             if brand_name:
                 query_res = Brand.select().where(Brand.name == brand_name)
@@ -579,7 +579,7 @@ class PartnerOrderManager(BackendApi):
 class OrderManager(BackendApi):
     def post(self):
         """
-        订单导出xlsx
+        订单导出xls
         ---
         tags:
           - 订单管理
@@ -651,7 +651,7 @@ class OrderManager(BackendApi):
             for i, row in enumerate(export_data):
                 for j, col in enumerate(row):
                     booksheet.write(i, j, col)
-            filename = "{}.xlsx".format(str(uuid.uuid4()))
+            filename = "{}.xls".format(str(uuid.uuid4()))
             workbook.save(os.path.join(FILE_PATH, filename))
             return self.make_response(filename=filename)
         except Exception as e:
@@ -737,41 +737,41 @@ class OrderManager(BackendApi):
           500:
             description: Server Error !
         """
-        try:
-            page = request.args.get("page", 1)
-            partner_id = request.args.get("partner_id", None)
-            start_time = request.args.get("start_time", None)
-            end_time = request.args.get("end_time", None)
-            if start_time:
-                start_time = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
-            if end_time:
-                end_time = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
-            page_size = request.args.get("page_size", 10)
-            all_count = Order.select(
-                Order.id
-            ).count()
-            total_page = get_pagesize(page_size, all_count)
-            query_res = Order.select().where(
-                (Order.id == int(partner_id) if partner_id is not None else 1 == 1) &
-                (Order.create_time >= start_time if start_time else 1 == 1) &
-                (Order.create_time <= end_time if end_time else 1 == 1)
-            ).order_by(Order.create_time.desc()).paginate(int(page), page_size).dicts()
-            query_res = list(query_res)
-            for q in query_res:
-                orderdetail_query = OrderDetail.select().where(OrderDetail.order_id == q["id"]).dicts()
-                sku_msg = []
-                for oq in orderdetail_query:
-                    sku_query = list(Product.select().where(Product.sku_id == oq["sku_id"]).dicts())[0]
-                    oq["sku_detail"] = sku_query
-                    sku_msg.append(oq)
-                q["sku_msg"] = sku_msg
-                partner_query = Partner.select(Partner.name).where(Partner.id == q["partner_id"]).dicts()
-                q["partner_msg"] = list(partner_query)[0]
-            result = [query_obj for query_obj in query_res]
-            return self.make_response(reult=result, total_page=total_page)
-        except Exception as e:
-            logging.error(e)
-            return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
+        # try:
+        page = int(request.args.get("page", 1))
+        partner_id = request.args.get("partner_id", None)
+        start_time = request.args.get("start_time", None)
+        end_time = request.args.get("end_time", None)
+        if start_time:
+            start_time = datetime.datetime.strptime(start_time, "%Y-%m-%d %H:%M:%S")
+        if end_time:
+            end_time = datetime.datetime.strptime(end_time, "%Y-%m-%d %H:%M:%S")
+        page_size = int(request.args.get("page_size", 10))
+        all_count = Order.select(
+            Order.id
+        ).count()
+        total_page = get_pagesize(page_size, all_count)
+        query_res = Order.select().where(
+            (Order.id == int(partner_id) if partner_id is not None else 1 == 1) &
+            (Order.create_time >= start_time if start_time else 1 == 1) &
+            (Order.create_time <= end_time if end_time else 1 == 1)
+        ).order_by(Order.create_time.desc()).paginate(int(page), page_size).dicts()
+        query_res = list(query_res)
+        for q in query_res:
+            orderdetail_query = OrderDetail.select().where(OrderDetail.order_id == q["id"]).dicts()
+            sku_msg = []
+            for oq in orderdetail_query:
+                sku_query = list(Product.select().where(Product.sku_id == oq["sku_id"]).dicts())[0]
+                oq["sku_detail"] = sku_query
+                sku_msg.append(oq)
+            q["sku_msg"] = sku_msg
+            partner_query = Partner.select(Partner.name).where(Partner.id == q["partner_id"]).dicts()
+            q["partner_msg"] = list(partner_query)[0]
+        result = [query_obj for query_obj in query_res]
+        return self.make_response(reult=result, total_page=total_page)
+        # except Exception as e:
+        #     logging.error(e)
+        #     return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
 
 
 class UpdateProductPrice(BackendApi):
