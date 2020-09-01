@@ -16,7 +16,7 @@ from flask_restful import Resource
 from werkzeug.utils import secure_filename
 from app.models.orm import Brand, User, Partner, Order, Product, DBCONN, OrderDetail
 
-from app.errors import IntervalServerError, AuthError, InvalidParameter
+from app.errors import IntervalServerError, AuthError, InvalidParameter, RepeatError
 from app.logics import refresh_expiration_time, verify_token, REDIS, get_token_info, get_file_data
 
 # -----------------------------------------------------------------------------
@@ -58,6 +58,177 @@ class BackendApi(Resource):
         response = kwargs
         response.update(error_id=error_id, error_msg=error_msg)
         return jsonify(response)
+
+
+class UserManagement(BackendApi):
+    def get(self):
+        """
+        获取所有用户信息
+        ---
+        tags:
+          - 用户管理模块
+        parameters:
+          - name: role
+            in: query
+            type: string
+            description: 用户类型 (user|partner)
+        responses:
+          500:
+            description: Server Error !
+        """
+        try:
+            role = request.args.get("role")
+            if role == "user":
+                result = User.select().dicts()
+                r = []
+                for i in result:
+                    del i["password"]
+                    r.append(i)
+                return self.make_response(result=r)
+            elif role == "partner":
+                result = Partner.select().dicts()
+                r = []
+                for i in result:
+                    del i["password"]
+                    r.append(i)
+                return self.make_response(result=r)
+            else:
+                return self.make_response(error_id=AuthError.code, error_msg=AuthError.__name__)
+        except Exception as e:
+            logging.error(e)
+            return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
+
+    def put(self):
+        """
+        更新用户
+        ---
+        tags:
+          - 用户管理模块
+        parameters:
+          - name: account
+            in: body
+            type: string
+            required: true
+            description: 账号
+          - name: name
+            in: body
+            type: string
+            required: true
+            description: 用户名
+          - name: user_id
+            in: body
+            type: string
+            required: true
+            description: 用户id
+          - name: password
+            in: body
+            type: string
+            description: 密码
+          - name: role
+            in: body
+            type: string
+            description: 用户类型 (user|partner)
+        responses:
+          500:
+            description: Server Error !
+        """
+        try:
+            json_parameter = request.get_json(force=True)
+            account = json_parameter["account"]
+            name = json_parameter["name"]
+            password = json_parameter["password"]
+            user_id = json_parameter["user_id"]
+            role = json_parameter["role"]
+            if role == "user":
+                User.update(
+                    {
+                        "name": name,
+                        "account": account,
+                        "password": password,
+                    }
+                ).where(User.id == user_id).execute()
+            elif role == "partner":
+                Partner.update(
+                    {
+                        "name": name,
+                        "account": account,
+                        "password": password,
+                    }
+                ).where(Partner.id == user_id).execute()
+            else:
+                return self.make_response(error_id=AuthError.code, error_msg=AuthError.__name__)
+        except Exception as e:
+            logging.error(e)
+            return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
+
+    def post(self):
+        """
+        添加用户
+        ---
+        tags:
+          - 用户管理模块
+        parameters:
+          - name: account
+            in: body
+            type: string
+            required: true
+            description: 账号
+          - name: name
+            in: body
+            type: string
+            required: true
+            description: 用户名
+          - name: password
+            in: body
+            type: string
+            description: 密码
+          - name: role
+            in: body
+            type: string
+            description: 用户类型 (user|partner)
+        responses:
+          500:
+            description: Server Error !
+        """
+        try:
+            json_parameter = request.get_json(force=True)
+            account = json_parameter["account"]
+            name = json_parameter["name"]
+            password = json_parameter["password"]
+            role = json_parameter["role"]
+            if role == "user":
+                query_res = User.select().where(
+                    User.account == account
+                )
+                if query_res:
+                    return self.make_response(error_id=RepeatError.code, error_msg=RepeatError.__name__)
+                else:
+                    User.insert(
+                        {
+                            "name": name,
+                            "account": account,
+                            "password": password,
+                        }
+                    ).execute()
+            elif role == "partner":
+                query_res = Partner.select().where(
+                    Partner.account == account
+                )
+                if query_res:
+                    return self.make_response(error_id=RepeatError.code, error_msg=RepeatError.__name__)
+                else:
+                    Partner.insert(
+                        {
+                            "name": name,
+                            "account": account,
+                            "password": password,
+                        }
+                    ).execute()
+            else:
+                return self.make_response(error_id=AuthError.code, error_msg=AuthError.__name__)
+        except Exception as e:
+            logging.error(e)
+            return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
 
 
 class Auth(BackendApi):
@@ -198,12 +369,21 @@ class ProductManager(BackendApi):
         ---
         tags:
           - 商品管理
+        parameters:
+          - name: brand_id
+            in: query
+            type: string
+            required: false
+            description: 品牌id
         responses:
           500:
             description: Server Error !
         """
         try:
-            query_res = Product.select().dicts()
+            brand_id = request.args.get("brand_id", None)
+            query_res = Product.select().where(
+                Product.brand_id == int(brand_id) if brand_id is not None else 1 == 1
+            ).dicts()
             result = [query_obj for query_obj in query_res]
             return self.make_response(reult=result)
         except Exception as e:

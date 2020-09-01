@@ -5,36 +5,35 @@ from peewee import (
     DateTimeField,
     DecimalField,
     PostgresqlDatabase,
-    SqliteDatabase, AutoField
+    SqliteDatabase, AutoField, PrimaryKeyField
 )
 
 import datetime
 
-DBCONN = SqliteDatabase('webservice.db3', pragmas={'journal_mode': 'wal'})
+# DBCONN = SqliteDatabase('webservice.db3', pragmas={'journal_mode': 'wal'})
 
 
-# DBCONN = PostgresqlDatabase('productdb', **{
-#     'host': '',
-#     'port': '',
-#     'user': '',
-#     'password': ''
-# })
+DBCONN = PostgresqlDatabase('taoledb', **{
+    'host': '106.54.253.253',
+    'port': '5432',
+    'user': 'taole',
+    'password': 'taole2020!@'
+})
 
 class Brand(Model):
-    id = AutoField()
+    id = PrimaryKeyField()
     name = CharField(max_length=50, null=False)
     create_time = DateTimeField(default=datetime.datetime.now)
 
     class Meta(object):
         """Indicates which database/schema this model points to."""
 
-        primary_key = False
         database = DBCONN
         table_name = 'brand'
 
 
 class Product(Model):
-    sku_id = IntegerField(primary_key=True)
+    sku_id = PrimaryKeyField()
     brand_id = IntegerField(null=False)
     name = CharField(max_length=200, null=False)
     unit = CharField(max_length=50, null=False)
@@ -52,13 +51,12 @@ class Product(Model):
     class Meta(object):
         """Indicates which database/schema this model points to."""
 
-        primary_key = False
         database = DBCONN
         table_name = 'product'
 
 
 class Order(Model):
-    id = AutoField()
+    id = PrimaryKeyField()
     amount = DecimalField(max_digits=20, decimal_places=3, null=False)
     partner_id = IntegerField(null=False)
     status = IntegerField(null=False)
@@ -67,27 +65,24 @@ class Order(Model):
 
     class Meta(object):
         """Indicates which database/schema this model points to."""
-
-        primary_key = False
         database = DBCONN
         table_name = 'order'
 
 
 class OrderDetail(Model):
-    order_id = IntegerField()
+    order_id = PrimaryKeyField()
     sku_id = IntegerField(null=False)
     volume = IntegerField(null=False)
 
     class Meta(object):
         """Indicates which database/schema this model points to."""
 
-        primary_key = False
         database = DBCONN
         table_name = 'order_detail'
 
 
 class Partner(Model):
-    id = AutoField()
+    id = PrimaryKeyField()
     name = CharField(max_length=200, null=False)
     account = CharField(max_length=200, null=False)
     password = CharField(max_length=200, null=False)
@@ -95,13 +90,12 @@ class Partner(Model):
     class Meta(object):
         """Indicates which database/schema this model points to."""
 
-        primary_key = False
         database = DBCONN
         table_name = 'partner'
 
 
 class PartnerHistory(Model):
-    id = AutoField(primary_key=True)
+    id = PrimaryKeyField()
     partner_id = IntegerField()
     operation = CharField(max_length=200, null=False)
     description = CharField(max_length=200, null=False)
@@ -110,13 +104,12 @@ class PartnerHistory(Model):
     class Meta(object):
         """Indicates which database/schema this model points to."""
 
-        primary_key = False
         database = DBCONN
         table_name = 'partner_history'
 
 
 class User(Model):
-    id = AutoField()
+    id = PrimaryKeyField()
     name = CharField(max_length=200, null=False)
     account = CharField(max_length=200, null=False)
     password = CharField(max_length=200, null=False)
@@ -124,3 +117,10 @@ class User(Model):
     class Meta(object):
         database = DBCONN
         table_name = 'user'
+
+
+
+
+# DBCONN.create_tables([User,Product,Partner,PartnerHistory,Order,OrderDetail,Brand])
+
+

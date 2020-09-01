@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # -----------------------------------------------------------------------------
 # File Name: errors.py
-# Time: 2020/4/28 
+# Time: 2020/4/28
 # Author:    zc.Yao
 # -----------------------------------------------------------------------------
 
@@ -46,4 +46,4 @@ InvalidParameter = gen_logic_error("Invalid Parameter", 2001)
 UpdateError = gen_logic_error("Update Error or Update data repeatedly", 2002)
 # 验证失败
 AuthError = gen_logic_error("Auth Error", 2003)
-
+RepeatError = gen_logic_error("Repeat User", 2004)

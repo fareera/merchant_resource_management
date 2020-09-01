@@ -3,7 +3,7 @@ from flask_restful import Api
 #  加载API
 from app.views import Auth, ApiDocs, BrandManager, ProductManager, PartnerProductManager, PartnerBrandManager, \
     UpdateProductStock, UpdateProductPrice, UpdateProductStatus, Logout, PartnerOrderManager, OrderManager, UploadImg, \
-    GetStaticAddress
+    GetStaticAddress, UserManagement
 
 api = Api()
 apiroot = '/api/v0.1/'
@@ -79,3 +79,9 @@ api.add_resource(GetStaticAddress,
                  apiroot +
                  'GetStaticAddress',
                  endpoint='GetStaticAddress')
+
+# 用户管理模块
+api.add_resource(UserManagement,
+                 apiroot +
+                 'UserManagement',
+                 endpoint='UserManagement')
