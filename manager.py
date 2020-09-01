@@ -61,6 +61,11 @@ verify_paths = [
     "PartnerProductManager",
     "PartnerBrandManager",
     "Logout",
+    "PartnerBrandManager",
+    "PartnerOrderManager",
+    "OrderManager",
+    "GetStaticAddress",
+    "UserManagement",
 ]
 
 
