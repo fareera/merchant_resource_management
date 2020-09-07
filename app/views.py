@@ -157,6 +157,7 @@ class UserManagement(BackendApi):
                 ).where(Partner.id == user_id).execute()
             else:
                 return self.make_response(error_id=AuthError.code, error_msg=AuthError.__name__)
+            return self.make_response()
         except Exception as e:
             logging.error(e)
             return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
@@ -226,6 +227,7 @@ class UserManagement(BackendApi):
                     ).execute()
             else:
                 return self.make_response(error_id=AuthError.code, error_msg=AuthError.__name__)
+            return self.make_response()
         except Exception as e:
             logging.error(e)
             return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
@@ -375,17 +377,33 @@ class ProductManager(BackendApi):
             type: string
             required: false
             description: 品牌id
+          - name: page_size
+            in: query
+            type: integer
+            required: false
+            description: 页面展示数量
+          - name: page_number
+            in: query
+            type: integer
+            required: false
+            description: 页数
         responses:
           500:
             description: Server Error !
         """
         try:
             brand_id = request.args.get("brand_id", None)
+            page_size = int(request.args.get("page_size", None))
+            page_number = int(request.args.get("page_number", None))
+            all_count = Product.select(Product.sku_id).where(
+                Product.brand_id == int(brand_id) if brand_id is not None else 1 == 1
+            ).count()
+            total_page = get_pagesize(page_size, all_count)
             query_res = Product.select().where(
                 Product.brand_id == int(brand_id) if brand_id is not None else 1 == 1
-            ).dicts()
+            ).order_by(- Product.sku_id).paginate(int(page_number), int(page_size)).dicts()
             result = [query_obj for query_obj in query_res]
-            return self.make_response(reult=result)
+            return self.make_response(reult=result, total_page=total_page, all_count=all_count)
         except Exception as e:
             logging.error(e)
             return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
@@ -669,29 +687,29 @@ class PartnerProductManager(BackendApi):
           500:
             description: Server Error !
         """
-        try:
-            brand_name = request.args.get("brand_name", None)
-            page = request.args.get("page", 1)
-            page_size = int(request.args.get("page_size", 10))
-            brand_id = None
-            if brand_name:
-                query_res = Brand.select().where(Brand.name == brand_name)
-                if query_res:
-                    brand_id = query_res[0].id
-            all_count = Product.select(
-                Product.sku_id,
-            ).where(
-                Product.brand_id == brand_id if brand_id is not None else 1 == 1
-            ).count()
-            total_page = get_pagesize(page_size, all_count)
-            query_res = Product.select().where(
-                Product.brand_id == brand_id if brand_id is not None else 1 == 1
-            ).ordey_by(Product.create_time.desc()).paginate(int(page), page_size).dicts()
-            query_res = list(query_res)
-            return self.make_response(reult=query_res, total_page=total_page)
-        except Exception as e:
-            logging.error(e)
-            return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
+        # try:
+        brand_name = request.args.get("brand_name", None)
+        page = request.args.get("page", 1)
+        page_size = int(request.args.get("page_size", 10))
+        brand_id = None
+        if brand_name:
+            query_res = Brand.select().where(Brand.name == brand_name)
+            if query_res:
+                brand_id = query_res[0].id
+        all_count = Product.select(
+            Product.sku_id,
+        ).where(
+            Product.brand_id == brand_id if brand_id is not None else 1 == 1
+        ).count()
+        total_page = get_pagesize(page_size, all_count)
+        query_res = Product.select().where(
+            (Product.brand_id == brand_id if brand_id is not None else 1 == 1)
+        ).order_by(Product.create_time.desc()).paginate(int(page), page_size).dicts()
+        query_res = list(query_res)
+        return self.make_response(reult=query_res, total_page=total_page)
+        # except Exception as e:
+        #     logging.error(e)
+        #     return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
 
 
 class PartnerOrderManager(BackendApi):

@@ -46,4 +46,5 @@ InvalidParameter = gen_logic_error("Invalid Parameter", 2001)
 UpdateError = gen_logic_error("Update Error or Update data repeatedly", 2002)
 # 验证失败
 AuthError = gen_logic_error("Auth Error", 2003)
+# 重复用户
 RepeatError = gen_logic_error("Repeat User", 2004)
