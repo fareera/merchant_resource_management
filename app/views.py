@@ -393,8 +393,8 @@ class ProductManager(BackendApi):
         """
         try:
             brand_id = request.args.get("brand_id", None)
-            page_size = int(request.args.get("page_size", None))
-            page_number = int(request.args.get("page_number", None))
+            page_size = int(request.args.get("page_size", 40))
+            page_number = int(request.args.get("page_number", 1))
             all_count = Product.select(Product.sku_id).where(
                 Product.brand_id == int(brand_id) if brand_id is not None else 1 == 1
             ).count()
@@ -704,9 +704,9 @@ class PartnerProductManager(BackendApi):
         total_page = get_pagesize(page_size, all_count)
         query_res = Product.select().where(
             (Product.brand_id == brand_id if brand_id is not None else 1 == 1)
-        ).order_by(Product.create_time.desc()).paginate(int(page), page_size).dicts()
+        ).order_by(Product.create_time.desc()).paginate(int(page), int(page_size)).dicts()
         query_res = list(query_res)
-        return self.make_response(reult=query_res, total_page=total_page)
+        return self.make_response(reult=query_res, total_page=total_page, count=all_count)
         # except Exception as e:
         #     logging.error(e)
         #     return self.make_response(error_id=IntervalServerError.code, error_msg=str(e))
